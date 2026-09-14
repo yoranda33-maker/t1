@@ -1008,3 +1008,70 @@ textarea {
   }
   .live-status { min-width: 0; }
 }
+
+
+.api-connect-box {
+  min-width: 390px;
+  display: grid;
+  gap: 9px;
+}
+
+.api-connect-box label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.api-connect-box input {
+  width: 100%;
+}
+
+.api-connect-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.api-connect-box small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.cost-block-title > div {
+  display: grid;
+  gap: 2px;
+}
+
+.mini-live-btn {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 10px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mini-live-btn:hover {
+  border-color: #85a6ff;
+  background: #f4f7ff;
+}
+
+.mini-live-btn:disabled {
+  opacity: .6;
+  cursor: wait;
+}
+
+.live-result-note {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+@media (max-width: 860px) {
+  .api-connect-box {
+    min-width: 0;
+    width: 100%;
+  }
+}

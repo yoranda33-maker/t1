@@ -39,9 +39,14 @@ const destinations = [
 const defaultState = {
   trip: { name: "", origin: "", startDate: "", endDate: "", memo: "" },
   compare: {
+    origin: "ICN",
+    adults: 1,
     startDate: "",
     endDate: "",
     destinations: []
+  },
+  settings: {
+    apiBaseUrl: ""
   },
   savedDestinations: [],
   itinerary: [],
@@ -122,8 +127,11 @@ function getCompareMetrics(item) {
 }
 
 function ensureCompareState() {
-  if (!state.compare) state.compare = { startDate: "", endDate: "", destinations: [] };
+  if (!state.compare) state.compare = { origin: "ICN", adults: 1, startDate: "", endDate: "", destinations: [] };
+  if (!state.compare.origin) state.compare.origin = "ICN";
+  if (!state.compare.adults) state.compare.adults = 1;
   if (!Array.isArray(state.compare.destinations)) state.compare.destinations = [];
+  if (!state.settings) state.settings = { apiBaseUrl: "" };
 }
 
 
@@ -142,6 +150,10 @@ function loadState() {
       compare: {
         ...structuredCloneSafe(defaultState.compare),
         ...(parsed.compare || {})
+      },
+      settings: {
+        ...structuredCloneSafe(defaultState.settings),
+        ...(parsed.settings || {})
       }
     };
   } catch {
@@ -155,7 +167,21 @@ function structuredCloneSafe(obj) {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  renderAll();
+  document.getElementById("saveApiUrlBtn").addEventListener("click", () => {
+  const input = document.getElementById("apiBaseUrl");
+  const value = input.value.trim().replace(/\/+$/, "");
+  if (value && !/^https:\/\//i.test(value)) {
+    return showToast("Worker 주소는 https:// 로 시작해야 합니다.");
+  }
+  state.settings.apiBaseUrl = value;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  document.getElementById("apiStatus").textContent = value ? "주소가 저장되었습니다. 연결 테스트를 눌러보세요." : "Worker 주소가 비어 있습니다.";
+  showToast("API 주소를 저장했어요.");
+});
+
+document.getElementById("testApiBtn").addEventListener("click", testApiConnection);
+
+renderAll();
 }
 
 function showToast(message) {
@@ -220,8 +246,14 @@ function renderCompare() {
 
   const start = document.getElementById("compareStartDate");
   const end = document.getElementById("compareEndDate");
+  const origin = document.getElementById("compareOriginAirport");
+  const adults = document.getElementById("compareAdults");
+  const apiBaseUrl = document.getElementById("apiBaseUrl");
   if (start) start.value = state.compare.startDate || "";
   if (end) end.value = state.compare.endDate || "";
+  if (origin) origin.value = state.compare.origin || "ICN";
+  if (adults) adults.value = String(state.compare.adults || 1);
+  if (apiBaseUrl) apiBaseUrl.value = state.settings?.apiBaseUrl || "";
 
   const select = document.getElementById("compareDestinationSelect");
   if (select) {
@@ -257,8 +289,11 @@ function renderCompare() {
         <div class="compare-card-body">
           <div class="cost-block">
             <div class="cost-block-title">
-              <h5>✈ 직항 항공권 Top 5</h5>
-              <span>왕복 · 1인 기준</span>
+              <div>
+                <h5>✈ 직항 항공권 Top 5</h5>
+                <span>왕복 · 선택 인원 기준</span>
+              </div>
+              <button class="mini-live-btn" data-fetch-flights="${d.id}">자동 조회</button>
             </div>
             <div class="price-list">
               ${item.flights.map((f, i) => `
@@ -269,12 +304,16 @@ function renderCompare() {
                 </div>
               `).join("")}
             </div>
+            <p class="live-result-note">${item.liveFlightUpdatedAt ? `최근 조회: ${escapeHtml(item.liveFlightUpdatedAt)}` : "수동 입력 또는 자동 조회 가능"}</p>
           </div>
 
           <div class="cost-block">
             <div class="cost-block-title">
-              <h5>🏨 호텔·리조트 Top 5</h5>
-              <span>여행자 선호도 순 · 1박</span>
+              <div>
+                <h5>🏨 호텔·리조트 Top 5</h5>
+                <span>실시간 객실가 기준 · 1박</span>
+              </div>
+              <button class="mini-live-btn" data-fetch-hotels="${d.id}">자동 조회</button>
             </div>
             <div class="price-list">
               ${item.hotels.map((h, i) => `
@@ -290,6 +329,7 @@ function renderCompare() {
                 </div>
               `).join("")}
             </div>
+            <p class="live-result-note">${item.liveHotelUpdatedAt ? `최근 조회: ${escapeHtml(item.liveHotelUpdatedAt)}` : "수동 입력 또는 자동 조회 가능"}</p>
           </div>
 
           <div class="cost-block">
@@ -356,7 +396,138 @@ function renderCompare() {
     });
   });
 
+  grid.querySelectorAll("[data-fetch-flights]").forEach(btn => {
+    btn.addEventListener("click", () => fetchLiveFlights(btn.dataset.fetchFlights, btn));
+  });
+
+  grid.querySelectorAll("[data-fetch-hotels]").forEach(btn => {
+    btn.addEventListener("click", () => fetchLiveHotels(btn.dataset.fetchHotels, btn));
+  });
+
   renderCompareSummary();
+}
+
+
+function getApiBaseUrl() {
+  return String(state.settings?.apiBaseUrl || "").trim().replace(/\/+$/, "");
+}
+
+function validateLiveSearch(destinationId) {
+  const d = destinations.find(x => x.id === destinationId);
+  if (!d) throw new Error("여행지 정보를 찾을 수 없습니다.");
+  if (!state.compare.startDate || !state.compare.endDate) {
+    throw new Error("먼저 출발일과 귀국일을 저장해주세요.");
+  }
+  const base = getApiBaseUrl();
+  if (!base) throw new Error("Cloudflare Worker 주소를 먼저 저장해주세요.");
+  return { d, base };
+}
+
+function setButtonLoading(button, isLoading, text) {
+  if (!button) return;
+  if (isLoading) {
+    button.dataset.originalText = button.textContent;
+    button.textContent = text || "조회 중...";
+    button.disabled = true;
+  } else {
+    button.textContent = button.dataset.originalText || "자동 조회";
+    button.disabled = false;
+  }
+}
+
+async function fetchJson(url) {
+  const response = await fetch(url, { method: "GET", headers: { "Accept": "application/json" } });
+  let data = {};
+  try { data = await response.json(); } catch (_) {}
+  if (!response.ok) {
+    throw new Error(data.error || data.message || `조회 실패 (${response.status})`);
+  }
+  return data;
+}
+
+async function fetchLiveFlights(destinationId, button) {
+  try {
+    const { d, base } = validateLiveSearch(destinationId);
+    setButtonLoading(button, true, "항공 조회 중...");
+    const qs = new URLSearchParams({
+      origin: state.compare.origin || "ICN",
+      destination: d.airport,
+      departureDate: state.compare.startDate,
+      returnDate: state.compare.endDate,
+      adults: String(state.compare.adults || 1),
+      currency: "KRW"
+    });
+    const data = await fetchJson(`${base}/api/flights?${qs.toString()}`);
+    const item = state.compare.destinations.find(x => x.destinationId === destinationId);
+    if (!item) return;
+
+    item.flights = Array.from({ length: 5 }, (_, i) => {
+      const f = (data.items || [])[i];
+      return {
+        rank: i + 1,
+        airline: f ? `${f.airline || "항공사"} · ${f.route || ""}`.replace(/\s·\s$/, "") : "",
+        price: f ? Math.round(Number(f.price || 0)) : ""
+      };
+    });
+    item.liveFlightUpdatedAt = new Date().toLocaleString("ko-KR");
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    renderCompare();
+    showToast(`${d.city} 직항 항공권을 불러왔어요.`);
+  } catch (err) {
+    showToast(err.message || "항공권 조회 중 오류가 발생했습니다.");
+  } finally {
+    setButtonLoading(button, false);
+  }
+}
+
+async function fetchLiveHotels(destinationId, button) {
+  try {
+    const { d, base } = validateLiveSearch(destinationId);
+    setButtonLoading(button, true, "숙소 조회 중...");
+    const qs = new URLSearchParams({
+      cityCode: d.airport,
+      checkInDate: state.compare.startDate,
+      checkOutDate: state.compare.endDate,
+      adults: String(state.compare.adults || 1),
+      currency: "KRW"
+    });
+    const data = await fetchJson(`${base}/api/hotels?${qs.toString()}`);
+    const item = state.compare.destinations.find(x => x.destinationId === destinationId);
+    if (!item) return;
+
+    item.hotels = Array.from({ length: 5 }, (_, i) => {
+      const h = (data.items || [])[i];
+      return {
+        rank: i + 1,
+        name: h?.name || "",
+        type: h?.type || "호텔",
+        nightly: h ? Math.round(Number(h.nightly || 0)) : ""
+      };
+    });
+    item.liveHotelUpdatedAt = new Date().toLocaleString("ko-KR");
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    renderCompare();
+    showToast(`${d.city} 숙소 가격을 불러왔어요.`);
+  } catch (err) {
+    showToast(err.message || "숙소 조회 중 오류가 발생했습니다.");
+  } finally {
+    setButtonLoading(button, false);
+  }
+}
+
+async function testApiConnection() {
+  const status = document.getElementById("apiStatus");
+  const base = getApiBaseUrl();
+  if (!base) return showToast("Worker 주소를 먼저 입력해주세요.");
+  if (status) status.textContent = "연결 확인 중...";
+  try {
+    const data = await fetchJson(`${base}/api/health`);
+    if (status) status.textContent = `연결됨 · ${data.provider || "API"} · ${data.mode || ""}`;
+    showToast("Worker 연결이 정상입니다.");
+  } catch (err) {
+    if (status) status.textContent = `연결 실패: ${err.message}`;
+    showToast("Worker 연결에 실패했습니다.");
+  }
 }
 
 function renderCompareSummary() {
@@ -706,6 +877,8 @@ document.getElementById("saveCompareDatesBtn").addEventListener("click", () => {
     return showToast("귀국일은 출발일보다 뒤여야 합니다.");
   }
 
+  state.compare.origin = document.getElementById("compareOriginAirport").value || "ICN";
+  state.compare.adults = Number(document.getElementById("compareAdults").value || 1);
   state.compare.startDate = start;
   state.compare.endDate = end;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -731,5 +904,19 @@ document.getElementById("addCompareDestinationBtn").addEventListener("click", ()
   saveState();
   showToast("비교 후보를 추가했어요.");
 });
+
+document.getElementById("saveApiUrlBtn").addEventListener("click", () => {
+  const input = document.getElementById("apiBaseUrl");
+  const value = input.value.trim().replace(/\/+$/, "");
+  if (value && !/^https:\/\//i.test(value)) {
+    return showToast("Worker 주소는 https:// 로 시작해야 합니다.");
+  }
+  state.settings.apiBaseUrl = value;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  document.getElementById("apiStatus").textContent = value ? "주소가 저장되었습니다. 연결 테스트를 눌러보세요." : "Worker 주소가 비어 있습니다.";
+  showToast("API 주소를 저장했어요.");
+});
+
+document.getElementById("testApiBtn").addEventListener("click", testApiConnection);
 
 renderAll();
