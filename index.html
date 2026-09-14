@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WanderPlan - 해외 여행 플래너</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">✈</div>
+        <div>
+          <h1>WanderPlan</h1>
+          <p>해외 여행을 한눈에</p>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active" data-view="dashboard">🏠 대시보드</button>
+        <button class="nav-item" data-view="compare">⚖️ 여행지 비교</button>
+        <button class="nav-item" data-view="destinations">🌏 여행지 탐색</button>
+        <button class="nav-item" data-view="itinerary">🗓 일정 만들기</button>
+        <button class="nav-item" data-view="budget">💰 예산 관리</button>
+        <button class="nav-item" data-view="packing">🧳 짐 체크리스트</button>
+      </nav>
+
+      <div class="sidebar-tip">
+        <strong>로컬 전용 앱</strong>
+        <p>입력한 데이터는 이 PC의 브라우저에만 저장됩니다.</p>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">TRAVEL PLANNER</p>
+          <h2 id="pageTitle">나의 여행 대시보드</h2>
+        </div>
+        <button id="resetAllBtn" class="ghost danger">전체 초기화</button>
+      </header>
+
+      <section id="dashboard" class="view active">
+        <div class="hero card">
+          <div>
+            <span class="pill">Next Adventure</span>
+            <h3>다음 해외 여행을<br />가볍게 계획해보세요.</h3>
+            <p>여행지 후보, 일정, 예산, 준비물까지 한 곳에서 정리할 수 있습니다.</p>
+            <button class="primary" data-jump="compare">여행지 비교 시작</button>
+          </div>
+          <div class="hero-art">
+            <div class="sun"></div>
+            <div class="plane">✈</div>
+            <div class="mountain m1"></div>
+            <div class="mountain m2"></div>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat card">
+            <span>여행지 후보</span>
+            <strong id="savedDestCount">0</strong>
+            <small>저장한 도시</small>
+          </div>
+          <div class="stat card">
+            <span>일정 항목</span>
+            <strong id="itineraryCount">0</strong>
+            <small>등록된 계획</small>
+          </div>
+          <div class="stat card">
+            <span>예상 지출</span>
+            <strong id="budgetTotal">₩0</strong>
+            <small>예산 합계</small>
+          </div>
+          <div class="stat card">
+            <span>짐 준비</span>
+            <strong id="packingProgress">0%</strong>
+            <small>체크 완료율</small>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">QUICK PLAN</p>
+                <h3>여행 기본 정보</h3>
+              </div>
+            </div>
+            <div class="form-grid">
+              <label>여행 이름
+                <input id="tripName" placeholder="예: 2026 도쿄 가족여행" />
+              </label>
+              <label>출발지
+                <input id="origin" placeholder="예: 서울" />
+              </label>
+              <label>출발일
+                <input id="startDate" type="date" />
+              </label>
+              <label>귀국일
+                <input id="endDate" type="date" />
+              </label>
+              <label class="span-2">메모
+                <textarea id="tripMemo" rows="3" placeholder="항공권, 숙소, 꼭 하고 싶은 것 등을 적어두세요."></textarea>
+              </label>
+            </div>
+            <div class="actions">
+              <button id="saveTripBtn" class="primary">기본 정보 저장</button>
+              <span id="saveTripMsg" class="save-msg"></span>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">OVERVIEW</p>
+                <h3 id="tripSummaryTitle">아직 여행 정보가 없습니다</h3>
+              </div>
+            </div>
+            <div id="tripSummary" class="empty-state">
+              왼쪽에서 여행 기본 정보를 입력하면 이곳에 요약이 표시됩니다.
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <section id="compare" class="view">
+        <div class="card compare-intro">
+          <div>
+            <p class="eyebrow">COMPARE FIRST</p>
+            <h3>여행지를 정하기 전에 비용부터 비교해보세요.</h3>
+            <p>먼저 공통 여행 일정을 정한 뒤, 후보 여행지를 최대 4곳까지 등록하고 항공권·숙소·현지 식비를 나란히 비교할 수 있습니다.</p>
+          </div>
+          <div class="compare-date-box">
+            <label>출발일
+              <input id="compareStartDate" type="date" />
+            </label>
+            <label>귀국일
+              <input id="compareEndDate" type="date" />
+            </label>
+            <button id="saveCompareDatesBtn" class="primary">비교 일정 저장</button>
+          </div>
+        </div>
+
+        
+        <div class="card live-data-panel">
+          <div>
+            <p class="eyebrow">LIVE PRICE DATA</p>
+            <h3>항공권·숙박 자동 조회</h3>
+            <p>실시간 API 연결을 위한 구조를 준비했습니다. 비밀 API 키를 app.js에 노출하지 않기 위해 현재 오프라인 버전에서는 자동 호출을 비활성화합니다.</p>
+          </div>
+          <div class="live-status">
+            <span class="status-dot"></span>
+            <div>
+              <strong>실시간 데이터 연동 필요</strong>
+              <small>항공: Amadeus 등 · 숙박: Booking.com / Amadeus 등</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="compare-toolbar">
+          <div>
+            <p class="eyebrow">DESTINATIONS</p>
+            <h3>비교할 여행지</h3>
+          </div>
+          <div class="compare-add">
+            <select id="compareDestinationSelect"></select>
+            <button id="addCompareDestinationBtn" class="primary">후보 추가</button>
+          </div>
+        </div>
+
+        <div id="compareEmpty" class="empty-state">
+          비교할 여행지를 추가해주세요. 최대 4곳까지 한 화면에서 비교할 수 있습니다.
+        </div>
+        <div id="compareGrid" class="compare-grid"></div>
+
+        <div class="card compare-summary-card">
+          <div class="section-head wrap">
+            <div>
+              <p class="eyebrow">SUMMARY</p>
+              <h3>예상 여행비 비교</h3>
+            </div>
+            <span class="note-badge">입력한 값 기준 · 1인 기준</span>
+          </div>
+          <div id="compareSummaryTable" class="comparison-table-wrap"></div>
+        </div>
+      </section>
+
+      <section id="destinations" class="view">
+        <div class="section-head wrap">
+          <div>
+            <p class="eyebrow">DISCOVER</p>
+            <h3>여행지 탐색</h3>
+          </div>
+          <div class="filters">
+            <input id="destinationSearch" placeholder="도시 또는 국가 검색" />
+            <select id="continentFilter">
+              <option value="all">전체 지역</option>
+              <option value="아시아">아시아 전체</option>
+              <option value="동남아">동남아</option>
+              <option value="동북아">동북아</option>
+              <option value="유럽">유럽</option>
+              <option value="미주">미주</option>
+              <option value="오세아니아">오세아니아</option>
+            </select>
+          </div>
+        </div>
+        <div id="destinationGrid" class="destination-grid"></div>
+      </section>
+
+      <section id="itinerary" class="view">
+        <div class="grid-2">
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">ITINERARY</p>
+                <h3>일정 추가</h3>
+              </div>
+            </div>
+            <div class="form-grid">
+              <label>날짜
+                <input id="planDate" type="date" />
+              </label>
+              <label>시간
+                <input id="planTime" type="time" />
+              </label>
+              <label>장소
+                <input id="planPlace" placeholder="예: 시부야 스카이" />
+              </label>
+              <label>분류
+                <select id="planCategory">
+                  <option>관광</option>
+                  <option>식사</option>
+                  <option>쇼핑</option>
+                  <option>이동</option>
+                  <option>숙소</option>
+                  <option>기타</option>
+                </select>
+              </label>
+              <label class="span-2">메모
+                <textarea id="planNote" rows="3" placeholder="예약번호, 교통편, 참고사항 등"></textarea>
+              </label>
+            </div>
+            <button id="addPlanBtn" class="primary">일정 추가</button>
+          </div>
+
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">MY SCHEDULE</p>
+                <h3>등록된 일정</h3>
+              </div>
+              <button id="clearPlansBtn" class="ghost">일정 비우기</button>
+            </div>
+            <div id="itineraryList" class="list-stack"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="budget" class="view">
+        <div class="grid-2">
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">BUDGET</p>
+                <h3>지출 예상 추가</h3>
+              </div>
+            </div>
+            <div class="form-grid">
+              <label>항목
+                <input id="budgetName" placeholder="예: 항공권" />
+              </label>
+              <label>분류
+                <select id="budgetCategory">
+                  <option>항공</option>
+                  <option>숙소</option>
+                  <option>식비</option>
+                  <option>교통</option>
+                  <option>관광</option>
+                  <option>쇼핑</option>
+                  <option>기타</option>
+                </select>
+              </label>
+              <label class="span-2">금액(원)
+                <input id="budgetAmount" type="number" min="0" step="1000" placeholder="0" />
+              </label>
+            </div>
+            <button id="addBudgetBtn" class="primary">예산 추가</button>
+          </div>
+
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">TOTAL</p>
+                <h3>예산 현황</h3>
+              </div>
+              <strong id="budgetGrandTotal" class="grand-total">₩0</strong>
+            </div>
+            <div id="budgetList" class="list-stack"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="packing" class="view">
+        <div class="grid-2">
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">PACKING</p>
+                <h3>준비물 추가</h3>
+              </div>
+            </div>
+            <div class="inline-form">
+              <input id="packingItem" placeholder="예: 여권" />
+              <button id="addPackingBtn" class="primary">추가</button>
+            </div>
+            <div class="preset-wrap">
+              <span>빠른 추가</span>
+              <div id="presetButtons" class="preset-buttons"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">CHECKLIST</p>
+                <h3>짐 체크리스트</h3>
+              </div>
+              <button id="clearPackingBtn" class="ghost">목록 비우기</button>
+            </div>
+            <div class="progress-track"><div id="packingBar" class="progress-bar"></div></div>
+            <div id="packingList" class="checklist"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>
